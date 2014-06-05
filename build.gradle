@@ -1,0 +1,60 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+version = '1.0.0'
+defaultTasks 'clean','build'
+apply plugin: 'java'
+apply plugin: 'idea'
+sourceCompatibility = 1.5
+ext.rundeckPluginVersion= '1.1'
+
+apply plugin: "groovy"
+
+configurations{
+    //declare custom pluginLibs configuration to include only libs for this plugin
+    pluginLibs
+
+    //declare compile to extend from pluginLibs so it inherits the dependencies
+    compile{
+        extendsFrom pluginLibs
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    compile group: 'org.rundeck', name: 'rundeck-core', version: '2.1.2'
+    groovy 'org.codehaus.groovy:groovy-all:2.0.8'
+
+    pluginLibs group: 'log4j', name: 'log4j', version: '1.2.17'
+    pluginLibs group: 'commons-codec', name: 'commons-codec', version:'1.9'
+    pluginLibs group: 'org.codehaus.groovy.modules.http-builder', name: 'http-builder', version:'0.7'
+    testCompile group: 'junit', name:'junit', version: '4.11'
+
+}
+// task to copy plugin libs to output/lib dir
+task copyToLib(type: Copy) {
+    into "$buildDir/output/lib"
+    from configurations.pluginLibs
+}
+
+
+jar {
+    //include contents of output dir
+    from "$buildDir/output"
+    manifest {
+        attributes 'Rundeck-Plugin-Version': rundeckPluginVersion, 'Rundeck-Plugin-Archive': 'true', 'Rundeck-Plugin-Libs-Load-First':'false'
+        //create space-separated list of pluginLibs
+        def libList = configurations.pluginLibs.collect{'lib/'+it.name}.join(' ')
+        attributes 'Rundeck-Plugin-Classnames': 'com.simplifyops.rundeck.plugin.nexus.NexusDeliverArtifactStepPlugin,com.simplifyops.rundeck.plugin.nexus.NexusExistsArtifactStepPlugin,com.simplifyops.rundeck.plugin.nexus.NexusRegisterArtifactDeliveryStepPlugin', 'Rundeck-Plugin-Libs': "${libList}"
+    }
+}
+
+//set jar task to depend on copyToLib
+jar.dependsOn(copyToLib)
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '1.8'
+}
