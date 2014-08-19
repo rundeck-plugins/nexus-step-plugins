@@ -1,0 +1,326 @@
+- id: b5d8bd40-7da6-4358-acda-9deee5d32b9d
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: step-first
+    commands:
+    - script: |-
+        #!/usr/bin/env bash
+
+        set -eu
+
+        [[ $# == 2 ]] || {
+            echo >&2 'usage: version catalina_base'
+            exit 2
+        }
+
+        version=$1
+        catalina_base=$2
+
+        [[ ! -d "$catalina_base" ]] && {
+            echo >&2 "catalina_base directory not found: $catalina_base"
+            exit 1
+        }
+
+        cd "$catalina_base"
+
+        [[ ! -d webapps-$version ]] && {
+            echo >&2 "no webapps version found for $version"
+            exit 1
+        }
+
+        if ! current_version=$(readlink webapps)
+        then 
+            echo >&2 "couldn't read symlink for webapps. bailing."
+            exit 1
+        else 
+            printf "current version: %s\n" "$catalina_base/${current_version}"
+        fi
+
+        rm webapps
+        ln -s webapps-$version webapps
+
+        echo "updated link to $catalina_base/$(readlink webapps)"
+      args: ${option.version} ${node.catalina_base}
+  description: activate the app version
+  name: activate_version
+  uuid: b5d8bd40-7da6-4358-acda-9deee5d32b9d
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      excludePrecedence: true
+      rankAttribute: rank
+      rankOrder: ascending
+    filter: 'tags: tomcat'
+  group: utils
+  options:
+    version:
+      required: true
+      description: the version number
+- id: c1fdd8ce-b39e-4e6a-9d36-4c7dd68ad6e2
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+    - jobref:
+        group: utils
+        name: artifact_exists
+        args: -version ${option.version}
+      description: Verify WAR exists in repo.
+    - jobref:
+        group: utils
+        name: stage_webapp
+        args: -version ${option.version}
+      description: Copy WAR to version directory.
+    - jobref:
+        group: app
+        name: stop
+      description: Shutdown tomcat.
+    - jobref:
+        group: utils
+        name: activate_version
+        args: -version ${option.version}
+      description: Change to link to version.
+    - jobref:
+        group: app
+        name: start
+      description: Startup tomcat.
+    - jobref:
+        group: app
+        name: status
+      description: Check tomcat app.
+    - jobref:
+        group: utils
+        name: register_delivery
+        args: -version ${option.version}
+      description: Register delivery to model.
+  description: deploy the app
+  name: deploy
+  uuid: c1fdd8ce-b39e-4e6a-9d36-4c7dd68ad6e2
+  group: app
+  options:
+    version:
+      enforced: true
+      required: true
+      description: version for the war
+      valuesUrl: http://192.168.50.30:8081/nexus/service/local/rundeck/options/version?r=releases&g=com.simple&a=simple&p=war
+- id: 1e3eb770-b272-4055-94ea-11ad2f935846
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: step-first
+    commands:
+    - exec: 'mkdir -pv ${node.catalina_base}/webapps-${option.version}'
+      description: "Make webapp directory"
+    - type: nexus-deliver-artifact-step
+      nodeStep: false
+      configuration:
+        destinationPath: ${node.catalina_base}/webapps-${option.version}/simple.war
+        echo: 'true'
+        artifact: simple
+        group: com.simple
+        packaging: war
+        repo: releases
+        version: ${option.version}
+  description: stage the app
+  name: stage_webapp
+  uuid: 1e3eb770-b272-4055-94ea-11ad2f935846
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      excludePrecedence: true
+      rankAttribute: rank
+      rankOrder: ascending
+    filter: 'tags: tomcat'
+  group: utils
+  options:
+    version:
+      required: true
+      description: the version number
+      valuesUrl: http://192.168.50.30:8081/nexus/service/local/rundeck/options/version?r=releases&g=com.simple&a=simple&p=war
+- id: d777fef4-d1ad-4716-8a49-8435afb6b53a
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+    - script: |-
+        #!/usr/bin/env bash
+
+        set -eu
+
+        [[ $# = 1 ]] || {
+            echo >&2 'usage: catalina_base'
+            exit 2
+        }
+
+        catalina_base=$1
+
+        if ! status=$("$catalina_base/bin/status.sh")
+        then
+            "$catalina_base/bin/startup.sh"
+            echo "Started (was $status)"
+        fi
+
+        exit $?
+      args: ${node.catalina_base}
+      description: Startup tomcat
+  description: start the app
+  name: start
+  uuid: d777fef4-d1ad-4716-8a49-8435afb6b53a
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      excludePrecedence: true
+      rankOrder: ascending
+    filter: 'tags: tomcat'
+  group: app
+- id: 71fb2cd4-2935-4f4a-9650-ec6b06e380cb
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+    - exec: bin/status.sh
+      description: Check app status
+  description: get the app status
+  name: status
+  uuid: 71fb2cd4-2935-4f4a-9650-ec6b06e380cb
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: true
+      excludePrecedence: true
+      rankOrder: ascending
+    filter: 'tags: tomcat'
+  group: app
+- id: fb53355f-fd93-4def-8ea1-e172414d5010
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+    - script: |-
+        #!/usr/bin/env bash
+
+        set -eu
+        [[ $# = 1 ]] || {
+            echo >&2 'usage: catalina_base'
+            exit 2
+        }
+        catalina_base=$1
+
+        if ! status=$("$catalina_base/bin/status.sh")
+        then
+            echo "simple not running"
+        else
+            "$catalina_base/bin/shutdown.sh"
+        fi
+        echo "Stopped (was $status)"
+      args: ${node.catalina_base}
+      errorhandler:
+        script: |+
+          #!/usr/bin/env bash
+
+          set -eu
+          [[ $# = 1 ]] || {
+              echo >&2 'usage: catalina_base'
+              exit 2
+          }
+          CATALINA_BASE=$1
+          CATALINA_PID=$(ps auxww|grep java|grep catalina.base=${CATALINA_BASE}|grep -v grep|awk '{print $2}')
+
+          if [[ -z "${CATALINA_PID:-}" ]]
+          then
+             echo >&2 "tomcat PID could not be found. already dead."
+          else
+
+             if ! kill -9 "$CATALINA_PID"
+             then
+                echo >&2 "Failed killing tomcat process: $CATALINA_PID"
+                exit 1
+             else
+                echo "Killed tomcat pid $CATALINA_PID"
+             fi   
+          fi
+
+          exit 0
+
+        args: ${node.catalina_base}
+        keepgoingOnSuccess: true
+      description: Shutdown  tomcat
+  description: stop the app
+  name: stop
+  uuid: fb53355f-fd93-4def-8ea1-e172414d5010
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      excludePrecedence: true
+      rankAttribute: rank
+      rankOrder: ascending
+    filter: 'tags: tomcat'
+  group: app
+- id: 2c585c24-3e0f-48d7-9f3d-f1f1b7e11a81
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+    - type: nexus-exists-artifact-step
+      nodeStep: false
+      configuration:
+        artifact: simple
+        group: com.simple
+        packaging: war
+        repo: releases
+        version: ${option.version}
+  description: check if the artifact exists
+  name: artifact_exists
+  uuid: 2c585c24-3e0f-48d7-9f3d-f1f1b7e11a81
+  group: utils
+  options:
+    version:
+      required: true
+      description: the version to check
+- id: 1c3462fe-372d-4431-8a5b-bdbb50bbe4cd
+  project: simple
+  loglevel: INFO
+  sequence:
+    keepgoing: false
+    strategy: node-first
+    commands:
+    - type: nexus-register-delivery-step
+      nodeStep: false
+      configuration:
+        group: com.simple
+        artifact: simple
+        version: ${option.version}
+        packaging: war
+        repo: releases
+        destinationPath: ${node.catalina_base}/webapps-${option.version}/simple.war
+  description: 'Register the artifact delivery to the model'
+  name: register_delivery
+  uuid: 1c3462fe-372d-4431-8a5b-bdbb50bbe4cd
+  nodefilters:
+    dispatch:
+      threadcount: 1
+      keepgoing: false
+      excludePrecedence: true
+      rankOrder: ascending
+    filter: 'tags: tomcat'
+  group: utils
+  options:
+    version:
+      required: true

@@ -1,0 +1,7 @@
+Welcome to project, _@PROJECT@_. Here you can manage the
+deployment and routine procedures for the @PROJECT@ applications.
+
+Also see other tools:
+
+* Nexus: [@NEXUS_URL@](@NEXUS_URL@]) (admin/admin123)
+* Jenkins: [@JENKINS_URL@](@JENKINS_URL@) (anonymous)
