@@ -1,3 +1,9 @@
+## Toolchain Example
+
+The vagrant sub folder contains a multi-machine configuration using Nexus, Jenkins and Rundeck as a pipeline infrastructure.
+
+See some [screenshots](vagrant/docs/index.md).
+
 ## Configuration properties
 The plugin requires several configuration properties defined so it knows how to access the nexus server.
 Rundeck can be configured globally via the [framework.properties](http://rundeck.org/docs/administration/configuration-file-reference.html#framework.properties) or per project using
