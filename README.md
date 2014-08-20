@@ -2,6 +2,11 @@
 
 The vagrant sub folder contains a multi-machine configuration using Nexus, Jenkins and Rundeck as a pipeline infrastructure.
 
+The toolchain moves an simple webapp from build (jenkins), to publish (nexus), then deploy (rundeck).
+
+Rundeck contains a set of plugins and jobs that check for artifacts in the nexus repo and deploys them,
+recording their locations to the Rundeck resource model.
+
 See some [screenshots](vagrant/docs/index.md).
 
 ## Configuration properties
