@@ -24,29 +24,20 @@
 */
 package com.simplifyops.rundeck.plugin.nexus
 
-import com.dtolabs.rundeck.core.common.INodeEntry
-import com.dtolabs.rundeck.core.common.INodeSet
 import com.dtolabs.rundeck.core.common.NodeEntryImpl
 import com.dtolabs.rundeck.core.common.NodeSetImpl
-import com.dtolabs.rundeck.core.execution.service.FileCopierException
+import com.dtolabs.rundeck.core.dispatcher.DataContextUtils
 import com.dtolabs.rundeck.core.execution.workflow.steps.FailureReason
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepException
-import com.dtolabs.rundeck.core.execution.workflow.steps.node.NodeStepException
 import com.dtolabs.rundeck.core.plugins.Plugin
+import com.dtolabs.rundeck.core.plugins.configuration.PropertyScope
 import com.dtolabs.rundeck.core.resources.format.ResourceXMLFormatGenerator
-import com.dtolabs.rundeck.core.utils.NodeSet
 import com.dtolabs.rundeck.plugins.ServiceNameConstants
 import com.dtolabs.rundeck.plugins.descriptions.PluginDescription
 import com.dtolabs.rundeck.plugins.descriptions.PluginProperty
-import com.dtolabs.rundeck.plugins.step.NodeStepPlugin
 import com.dtolabs.rundeck.plugins.step.PluginStepContext
 import com.dtolabs.rundeck.plugins.step.StepPlugin
-import groovyx.net.http.HTTPBuilder
-import groovyx.net.http.HttpResponseException
 import groovyx.net.http.URIBuilder
-
-import static groovyx.net.http.Method.GET
-import static groovyx.net.http.ContentType.ANY
 
 /**
  * Example Req  http://192.168.50.20:8081/nexus/service/local/artifact/maven/redirect?r=releases&g=sardine&a=sardine&v=5.0&p=jar
@@ -77,10 +68,9 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
     private String repo;
     @PluginProperty(title = "Destination Path", description = "Path on the remote node for the file destination. If the path ends with a /, the same filename as the source will be used.", required = true)
     private String destinationPath;
-    @PluginProperty(title = "Model Directory", description = "Directory where model data is stored.", required = true)
+    @PluginProperty(title = "Model Source Directory", description = "Directory where model source data is stored.", required = true, scope = PropertyScope.Project)
     private String modelDirPath;
-
-    @PluginProperty(title = "Nexus", description = "Nexus server URL. eg, http://repository.example.com:8081", required = true)
+    @PluginProperty(title = "Nexus", description = "Nexus server URL. eg, http://repository.example.com:8081", required = true, scope=PropertyScope.Project)
     private String nexus;
 
 
@@ -100,7 +90,6 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
 
         String customDestinationPath = destinationPath;
 
-        println("Registering delivery for artifact matching query: ${query} at destination path: ${destinationPath}")
 
         def NodeSetImpl nodes = new NodeSetImpl()
 
@@ -109,12 +98,17 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
          *   <attribute name="artifact:${group}:${artifact}.destinationPath" value="${destinationPath}"/>
          *   <attribute name="artifact:${group}:${artifact}.repoUrl" value="${repoUrl}"/>
          *
-         * eg
-         *    artifact:sardine:sardine.version: 5.0
-         *    artifact:sardine:sardine.destinationPath: /tmp/fish
-         *    artifact:sardine:sardine.repoUrl: http://192.168.50.20:8081/nexus/...
+         * e.g.,
+         *
+         *    artifact:com.sardine:sardine.version: 5.0
+         *    artifact:com.sardine:sardine.destinationPath: /tmp/fish
+         *    artifact:com.sardine:sardine.repoUrl: http://192.168.50.20:8081/nexus/...
          */
         context.getNodes().each { node ->
+            def nodedata = DataContextUtils.nodeData(node)
+            def merged = DataContextUtils.addContext("node",nodedata,context.dataContext)
+            def expandedPath = DataContextUtils.replaceDataReferences(customDestinationPath,merged)
+            println("Registering delivery for artifact matching query: ${query} to destination: ${node.nodename}:${expandedPath}")
 
             def NodeEntryImpl newNode = new NodeEntryImpl(node.getNodename())
 
@@ -124,7 +118,7 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
             newNode.setAttribute("${prefix}:version", version)
             newNode.setAttribute("${prefix}:groupId", group)
             newNode.setAttribute("${prefix}:artifactId", artifact)
-            newNode.setAttribute("${prefix}:destination_path", customDestinationPath)
+            newNode.setAttribute("${prefix}:destination_path", expandedPath)
             newNode.setAttribute("${prefix}:repoUrl", new URIBuilder(nexus)
                     .setPath(REDIRECT_URL)
                     .setQuery(query)
@@ -139,14 +133,16 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
          */
 
         def modelDir = new File(modelDirPath)
+        println("Writing model data to directory: ${modelDir.absolutePath}")
+
         if (!modelDir.exists()) {
             if (!modelDir.mkdirs()) throw new RuntimeException("Failed creating model directory: ${modelDir.absolutePath}")
         }
         def file = new File(modelDir, "artifacts.xml")
-        def ostream = new FileOutputStream(file)
+        def fostream = new FileOutputStream(file)
         def formatter = new ResourceXMLFormatGenerator()
-        formatter.generateDocument(nodes, ostream)
-        ostream.close()
+        formatter.generateDocument(nodes, fostream)
+        fostream.close()
 
         println("Registered artifact on ${nodes.nodeNames.size()} nodes: ${nodes.nodeNames}")
         println("Model file: ${file.absolutePath}")

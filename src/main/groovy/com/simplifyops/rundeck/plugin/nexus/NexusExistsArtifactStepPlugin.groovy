@@ -27,6 +27,7 @@ package com.simplifyops.rundeck.plugin.nexus
 import com.dtolabs.rundeck.core.execution.workflow.steps.FailureReason
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepException
 import com.dtolabs.rundeck.core.plugins.Plugin
+import com.dtolabs.rundeck.core.plugins.configuration.PropertyScope
 import com.dtolabs.rundeck.plugins.ServiceNameConstants
 import com.dtolabs.rundeck.plugins.descriptions.PluginDescription
 import com.dtolabs.rundeck.plugins.descriptions.PluginProperty
@@ -63,8 +64,12 @@ public class NexusExistsArtifactStepPlugin implements StepPlugin {
     private String classifier;
     @PluginProperty(title = "Repo", description = "Repository name.", required = true)
     private String repo;
-    @PluginProperty(title = "Nexus", description = "Nexus server URL. eg, http://repository.example.com:8081", required = true)
+    @PluginProperty(title = "Nexus", description = "Nexus server URL. eg, http://repository.example.com:8081", required = true, scope=PropertyScope.Project)
     private String nexus;
+    @PluginProperty(title = "Nexus User", description = "Nexus login name", required = true, scope=PropertyScope.Project)
+    private String nexusUser;
+    @PluginProperty(title = "Nexus Password", description = "Nexus login password", required = true, scope=PropertyScope.Project)
+    private String nexusPassword;
 
 
 
@@ -79,8 +84,9 @@ public class NexusExistsArtifactStepPlugin implements StepPlugin {
             query.c = classifier
         }
         def http = new HTTPBuilder(nexus)
-        http.auth.basic 'admin', 'admin123'
-
+        if (nexusUser && nexusPassword) {
+            http.auth.basic nexusUser, nexusPassword
+        }
 
         http.request(HEAD) { req ->
             uri.path = REDIRECT_URL

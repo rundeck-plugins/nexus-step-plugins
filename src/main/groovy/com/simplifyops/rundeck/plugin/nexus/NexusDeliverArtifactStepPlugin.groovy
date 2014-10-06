@@ -24,24 +24,19 @@
 */
 package com.simplifyops.rundeck.plugin.nexus
 
-import com.dtolabs.rundeck.core.common.INodeEntry
+import com.dtolabs.rundeck.core.dispatcher.DataContextUtils
 import com.dtolabs.rundeck.core.execution.service.FileCopierException
 import com.dtolabs.rundeck.core.execution.workflow.steps.FailureReason
 import com.dtolabs.rundeck.core.execution.workflow.steps.StepException
-import com.dtolabs.rundeck.core.execution.workflow.steps.node.NodeStepException
 import com.dtolabs.rundeck.core.plugins.Plugin
+import com.dtolabs.rundeck.core.plugins.configuration.PropertyScope
 import com.dtolabs.rundeck.plugins.ServiceNameConstants
 import com.dtolabs.rundeck.plugins.descriptions.PluginDescription
 import com.dtolabs.rundeck.plugins.descriptions.PluginProperty
-import com.dtolabs.rundeck.plugins.step.NodeStepPlugin
 import com.dtolabs.rundeck.plugins.step.PluginStepContext
 import com.dtolabs.rundeck.plugins.step.StepPlugin
 import groovyx.net.http.HTTPBuilder
-import groovyx.net.http.HttpResponseException
 import groovyx.net.http.URIBuilder
-
-import static groovyx.net.http.Method.GET
-import static groovyx.net.http.ContentType.ANY
 
 /**
  * Example Req  http://192.168.50.20:8081/nexus/service/local/artifact/maven/redirect?r=releases&g=sardine&a=sardine&v=5.0&p=jar
@@ -75,8 +70,12 @@ public class NexusDeliverArtifactStepPlugin implements StepPlugin {
     private String destinationPath;
     @PluginProperty(title = "Print transfer information", description = "Log information about the file copy", defaultValue = "true")
     private boolean echo;
-    @PluginProperty(title = "Nexus", description = "Nexus server URL. eg, http://repository.example.com:8081", required = true)
+    @PluginProperty(title = "Nexus", description = "Nexus server URL. eg, http://repository.example.com:8081", required = true, scope = PropertyScope.Project)
     private String nexus;
+    @PluginProperty(title = "Nexus User", description = "Nexus login name", required = true, scope = PropertyScope.Project)
+    private String nexusUser;
+    @PluginProperty(title = "Nexus Password", description = "Nexus login password", required = true, scope = PropertyScope.Project)
+    private String nexusPassword;
 
 
 
@@ -84,7 +83,7 @@ public class NexusDeliverArtifactStepPlugin implements StepPlugin {
 
     @Override
     public void executeStep(final PluginStepContext context, final Map<String, Object> configuration)
-        throws StepException {
+    throws StepException {
 
         def tempFile = File.createTempFile("nexus-get-artifact", ".tmp");
 
@@ -93,7 +92,9 @@ public class NexusDeliverArtifactStepPlugin implements StepPlugin {
             query.c = classifier
         }
         def http = new HTTPBuilder(nexus)
-        http.auth.basic 'admin', 'admin123'
+        if (nexusUser && nexusPassword) {
+            http.auth.basic nexusUser, nexusPassword
+        }
 
         http.handler.'404' = {
             throw new StepException("Artifact not found in matching query: ${query}, server: ${nexus}",
@@ -129,17 +130,20 @@ public class NexusDeliverArtifactStepPlugin implements StepPlugin {
             customDestinationPath = customDestinationPath + tempFile.getName();
         }
         context.getNodes().each { node ->
+            def nodedata = DataContextUtils.nodeData(node)
+            def merged = DataContextUtils.addContext("node",nodedata,context.dataContext)
+            def expandedPath = DataContextUtils.replaceDataReferences(customDestinationPath,merged)
 
             try {
                 if (echo) {
                     context.getLogger().log(2, "Begin copy " + tempFile.length() + " bytes to "
-                            + node.getNodename() + ":" + customDestinationPath);
+                            + node.getNodename() + ":" + expandedPath);
                 }
                 String path = context.getFramework().getExecutionService().fileCopyFile(
                         context.getExecutionContext(),
                         tempFile,
                         node,
-                        customDestinationPath);
+                        expandedPath);
                 if (echo) {
                     context.getLogger().log(2, "Copy completed: " + path);
                 }
