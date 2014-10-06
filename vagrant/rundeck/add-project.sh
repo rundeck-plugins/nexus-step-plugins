@@ -48,7 +48,7 @@ su - rundeck -c "dispatch -p $PROJECT -f -- whoami"
 cp /vagrant/rundeck/readme.md.template /var/rundeck/projects/$PROJECT/readme.md
 sed -i \
     -e "s,@PROJECT@,$PROJECT,g" \
-    -e "s,@NEXUS_URL@,http://$IP:8081,g" \
+    -e "s,@NEXUS_URL@,http://$IP:8081/nexus,g" \
     -e "s,@JENKINS_URL@,http://$IP:8080,g" \
     /var/rundeck/projects/$PROJECT/readme.md
 

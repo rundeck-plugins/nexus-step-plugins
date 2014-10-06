@@ -21,7 +21,7 @@ then
    useradd -d /usr/local/nexus -M nexus; echo "created nexus user"
 fi
 
-curl -L http://www.sonatype.org/downloads/nexus-latest-bundle.zip -o nexus-latest-bundle.zip
+curl -L http://download.sonatype.com/nexus/oss/nexus-latest-bundle.zip -o nexus-latest-bundle.zip
 
 unzip nexus-latest-bundle.zip -d /usr/local
 nexus_home=/usr/local/nexus-2*
