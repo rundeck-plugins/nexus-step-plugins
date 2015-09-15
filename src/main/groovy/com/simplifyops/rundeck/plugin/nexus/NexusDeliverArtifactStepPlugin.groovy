@@ -50,7 +50,7 @@ public class NexusDeliverArtifactStepPlugin implements StepPlugin {
         CopyFileFailed, GetFileFailed, FileNotFound, UnexepectedFailure
 
     }
-    static final String REDIRECT_URL = "/nexus/service/local/artifact/maven/redirect"
+    static final String REDIRECT_URL = "/service/local/artifact/maven/redirect"
 
 
 

@@ -15,7 +15,7 @@ Rundeck can be configured globally via the [framework.properties](http://rundeck
 [project.properties](http://rundeck.org/docs/administration/configuration-file-reference.html#project.properties).
 
 
-Nexus: Nexus server URL. eg, http://repository.example.com:8081
+Nexus: Nexus server URL. eg, http://repository.example.com:8081/nexus and without a nexus context http://repository.example.com,
 
 * configure project: project.plugin.WorkflowStep.nexus-deliver-artifact-step.nexus=value
 * configure framework: framework.plugin.WorkflowStep.nexus-deliver-artifact-step.nexus=value
