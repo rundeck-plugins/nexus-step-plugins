@@ -48,7 +48,7 @@ public class NexusExistsArtifactStepPlugin implements StepPlugin {
     public static enum Reason implements FailureReason {
         UnexepectedFailure, FileNotFound
     }
-    static final String REDIRECT_URL = "/nexus/service/local/artifact/maven/redirect"
+    static final String REDIRECT_URL = "/service/local/artifact/maven/redirect"
 
 
 

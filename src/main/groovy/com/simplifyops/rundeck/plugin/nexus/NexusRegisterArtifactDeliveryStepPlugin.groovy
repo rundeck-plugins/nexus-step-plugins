@@ -74,7 +74,7 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
     private String nexus;
 
 
-    static final String REDIRECT_URL = "/nexus/service/local/artifact/maven/redirect"
+    static final String REDIRECT_URL = "/service/local/artifact/maven/redirect"
 
 
 
