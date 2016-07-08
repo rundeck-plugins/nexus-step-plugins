@@ -48,9 +48,6 @@ public class NexusExistsArtifactStepPlugin implements StepPlugin {
     public static enum Reason implements FailureReason {
         UnexepectedFailure, FileNotFound
     }
-    static final String REDIRECT_URL = "/service/local/artifact/maven/redirect"
-
-
 
     @PluginProperty(title = "Group", description = "Artifact group ID.", required = true)
     private String group;
@@ -79,32 +76,14 @@ public class NexusExistsArtifactStepPlugin implements StepPlugin {
     public void executeStep(final PluginStepContext context, final Map<String, Object> configuration)
     throws StepException {
 
-        def query = [g: group, a: artifact, v: version, r: repo, p: packaging]
-        if (classifier) {
-            query.c = classifier
-        }
-        def http = new HTTPBuilder(nexus)
-        if (nexusUser && nexusPassword) {
-            http.auth.basic nexusUser, nexusPassword
+        def query = NexusHttpRequestHandler.buildQuery(group, artifact, version, repo, packaging, classifier)
+
+        def successHandler = { resp  ->
+            println("Artifact exists.")
+            println("------------Headers------------")
+            resp.allHeaders.each {context.getLogger().log(2, "${it}")}
         }
 
-        http.request(HEAD) { req ->
-            uri.path = REDIRECT_URL
-            uri.query = query
-
-            response.success = { resp  ->
-                println("Artifact exists.")
-                println("------------Headers------------")
-                resp.allHeaders.each {context.getLogger().log(2, "${it}")}
-            }
-            response.'404' = {
-                throw new StepException("Artifact not found matching query: ${query}, server: ${nexus}",
-                        Reason.FileNotFound)
-            }
-            response.failure = { resp ->
-                throw new StepException("Status code: ${resp.status}. query: ${query}. server: ${nexus}",
-                        Reason.UnexepectedFailure)
-            }
-        }
+        NexusHttpRequestHandler.handleRequest(nexus, nexusUser, nexusPassword, query, successHandler)
     }
 }
