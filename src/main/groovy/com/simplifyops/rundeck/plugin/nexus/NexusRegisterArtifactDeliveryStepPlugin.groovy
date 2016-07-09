@@ -39,6 +39,8 @@ import com.dtolabs.rundeck.plugins.step.PluginStepContext
 import com.dtolabs.rundeck.plugins.step.StepPlugin
 import groovyx.net.http.URIBuilder
 
+import static com.simplifyops.rundeck.plugin.nexus.NexusHttpRequestHandler.REDIRECT_URL
+
 /**
  * Example Req  http://192.168.50.20:8081/nexus/service/local/artifact/maven/redirect?r=releases&g=sardine&a=sardine&v=5.0&p=jar
  */
@@ -74,19 +76,13 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
     private String nexus;
 
 
-    static final String REDIRECT_URL = "/service/local/artifact/maven/redirect"
-
-
 
     @Override
     public void executeStep(final PluginStepContext context, final Map<String, Object> configuration)
     throws StepException {
 
 
-        def query = [g: group, a: artifact, v: version, r: repo, p: packaging]
-        if (classifier) {
-            query.c = classifier
-        }
+        def query = NexusHttpRequestHandler.buildQuery(group, artifact, version, repo, packaging, classifier)
 
         String customDestinationPath = destinationPath;
 
@@ -119,8 +115,7 @@ public class NexusRegisterArtifactDeliveryStepPlugin implements StepPlugin {
             newNode.setAttribute("${prefix}:groupId", group)
             newNode.setAttribute("${prefix}:artifactId", artifact)
             newNode.setAttribute("${prefix}:destination_path", expandedPath)
-            newNode.setAttribute("${prefix}:repoUrl", new URIBuilder(nexus)
-                    .setPath(REDIRECT_URL)
+            newNode.setAttribute("${prefix}:repoUrl", new URIBuilder(nexus + REDIRECT_URL)
                     .setQuery(query)
                     .toString())
 

@@ -35,8 +35,6 @@ import com.dtolabs.rundeck.plugins.descriptions.PluginDescription
 import com.dtolabs.rundeck.plugins.descriptions.PluginProperty
 import com.dtolabs.rundeck.plugins.step.PluginStepContext
 import com.dtolabs.rundeck.plugins.step.StepPlugin
-import groovyx.net.http.HTTPBuilder
-import groovyx.net.http.URIBuilder
 
 /**
  * Example Req  http://192.168.50.20:8081/nexus/service/local/artifact/maven/redirect?r=releases&g=sardine&a=sardine&v=5.0&p=jar
@@ -47,12 +45,8 @@ import groovyx.net.http.URIBuilder
 public class NexusDeliverArtifactStepPlugin implements StepPlugin {
 
     public static enum Reason implements FailureReason {
-        CopyFileFailed, GetFileFailed, FileNotFound, UnexepectedFailure
-
+        CopyFileFailed, GetFileFailed
     }
-    static final String REDIRECT_URL = "/service/local/artifact/maven/redirect"
-
-
 
     @PluginProperty(title = "Group", description = "Artifact group ID.", required = true)
     private String group;
@@ -87,43 +81,19 @@ public class NexusDeliverArtifactStepPlugin implements StepPlugin {
 
         def tempFile = File.createTempFile("nexus-get-artifact", ".tmp");
 
-        def query = [g: group, a: artifact, v: version, r: repo, p: packaging]
-        if (classifier) {
-            query.c = classifier
-        }
-        def http = new HTTPBuilder(nexus)
-        if (nexusUser && nexusPassword) {
-            http.auth.basic nexusUser, nexusPassword
-        }
+        def query = NexusHttpRequestHandler.buildQuery(group, artifact, version, repo, packaging, classifier)
 
-        http.handler.'404' = {
-            throw new StepException("Artifact not found in matching query: ${query}, server: ${nexus}",
-                    Reason.FileNotFound)
-        }
-        http.handler.failure = { resp ->
-            throw new StepException("Status code: ${resp.status}. query: ${query}. server: ${nexus}",
-                    Reason.UnexepectedFailure)
-        }
-
-        if (echo) {
-            def uri = new URIBuilder(nexus)
-                    .setPath(REDIRECT_URL)
-                    .setQuery(query)
-                    .toString()
-            context.getLogger().log(2, "Requesting artifact from url: ${uri}")
-        }
-        http.get(path: REDIRECT_URL,
-                query: query) { resp, responseStream ->
-
+        def writeArtifactToFileSystemHandler = { resp, responseStream ->
             if (echo) {
-                context.getLogger().log(2, "Nexus request status: ${resp.status}, " +
-                        "Content-type: ${resp.contentType}, Content-length: ${resp.entity.contentLength}")
+                context.getLogger().log(2, "Content-type: ${resp.contentType}, Content-length: ${resp.entity.contentLength}")
             }
+
             def outputStream = new FileOutputStream(tempFile)
             outputStream << responseStream
             outputStream.close()
         }
 
+        NexusHttpRequestHandler.handleRequest(nexus, nexusUser, nexusPassword, query, writeArtifactToFileSystemHandler)
 
         String customDestinationPath = destinationPath;
         if (destinationPath.endsWith("/")) {
