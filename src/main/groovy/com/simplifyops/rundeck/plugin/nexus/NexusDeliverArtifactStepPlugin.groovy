@@ -97,7 +97,10 @@ public class NexusDeliverArtifactStepPlugin implements StepPlugin {
 
         String customDestinationPath = destinationPath;
         if (destinationPath.endsWith("/")) {
-            customDestinationPath = customDestinationPath + tempFile.getName();
+
+            def originalFileName = NexusHttpRequestHandler.resolveArtifactFileName(nexus, nexusUser, nexusPassword, query)
+
+            customDestinationPath = customDestinationPath + (originalFileName ? originalFileName : tempFile.getName());
         }
         context.getNodes().each { node ->
             def nodedata = DataContextUtils.nodeData(node)
