@@ -45,6 +45,15 @@ jar {
     //include contents of output dir
     from "$buildDir/output"
     manifest {
+        attributes 'Rundeck-Plugin-Name' : 'Nexus Step Plugins'
+        attributes 'Rundeck-Plugin-Description' : 'Workflow steps to check and deliver artifacts in a Nexus server.'
+        attributes 'Rundeck-Plugin-Rundeck-Compatibility-Version': '2.1.2+'
+        attributes 'Rundeck-Plugin-Tags': 'java,workflow step,nexus'
+        attributes 'Rundeck-Plugin-License': 'Apache 2.0'
+        attributes 'Rundeck-Plugin-Source-Link': 'https://github.com/rundeck-plugins/nexus-step-plugins'
+        attributes 'Rundeck-Plugin-Target-Host-Compatibility': 'all'
+        attributes 'Rundeck-Plugin-Author': 'Rundeck, Inc.'
+        attributes 'Rundeck-Plugin-File-Version': project.version
         attributes 'Rundeck-Plugin-Version': rundeckPluginVersion, 'Rundeck-Plugin-Archive': 'true', 'Rundeck-Plugin-Libs-Load-First':'false'
         //create space-separated list of pluginLibs
         def libList = configurations.pluginLibs.collect{'lib/'+it.name}.join(' ')
