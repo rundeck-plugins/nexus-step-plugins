@@ -1,3 +1,7 @@
+# Deprecated
+
+This repository is no longer maintained and is only avaiable for historical example purposes.  It will be deleted at some point in the future.
+
 ## Toolchain Example
 
 The vagrant sub folder contains a multi-machine configuration using Nexus, Jenkins and Rundeck as a pipeline infrastructure.
